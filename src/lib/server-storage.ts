@@ -3,7 +3,11 @@
  * All data is shared globally across all users/sessions
  */
 
-const API_BASE = "/"; // Server runs at root
+// In development, the server might run on a different port (3001)
+// In production, it usually runs on the same port as the frontend
+const API_BASE = window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1" 
+  ? (window.location.port === "3001" ? "/" : "http://localhost:3001/")
+  : "/";
 
 /**
  * Load global config from server

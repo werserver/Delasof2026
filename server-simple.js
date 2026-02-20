@@ -52,7 +52,14 @@ app.get("/config", (req, res) => {
 app.post("/config", (req, res) => {
   try {
     const config = req.body;
+    
+    // Ensure storage directory exists before writing
+    if (!fs.existsSync(STORAGE_DIR)) {
+      fs.mkdirSync(STORAGE_DIR, { recursive: true });
+    }
+    
     fs.writeFileSync(CONFIG_FILE, JSON.stringify(config, null, 2), "utf-8");
+    console.log("✓ Config saved successfully to:", CONFIG_FILE);
     res.json({ success: true, data: config });
   } catch (error) {
     console.error("Error saving config:", error);
