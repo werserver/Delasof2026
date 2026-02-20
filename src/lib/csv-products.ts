@@ -1,6 +1,7 @@
 import Papa from "papaparse";
 import type { Product, ProductsResponse } from "@/lib/api";
-import { getAdminSettings, getCsvData } from "@/lib/store";
+import { getAdminSettings, getCsvData, loadMainCsvFromServer } from "@/lib/store";
+import { loadCsvFromServer } from "@/lib/server-storage";
 import config from "@/lib/config";
 import { buildCloakedUrl } from "./url-builder";
 
@@ -74,24 +75,32 @@ async function loadCsvProducts(): Promise<Product[]> {
   const settings = getAdminSettings();
   const allProducts: Product[] = [];
 
-  // Load category-specific CSVs
-  for (const [catName, csvText] of Object.entries(settings.categoryCsvMap)) {
+  // Load category-specific CSVs from server
+  for (const catName of settings.categories) {
+    const csvText = await loadCsvFromServer(catName);
     if (csvText) {
       const products = await parseCsv(csvText, catName);
       allProducts.push(...products);
     }
   }
 
-  // Load default CSV (from localStorage or file) if no category CSVs or as fallback
-  if (allProducts.length === 0) {
-    let csvText = getCsvData();
-    if (!csvText) {
-      const response = await fetch(config.csvFilePath);
-      if (!response.ok) throw new Error("Failed to load CSV file");
-      csvText = await response.text();
-    }
-    const products = await parseCsv(csvText);
+  // Load main CSV from server
+  let mainCsvText = await loadMainCsvFromServer();
+  if (mainCsvText) {
+    const products = await parseCsv(mainCsvText);
     allProducts.push(...products);
+  } else {
+    // Fallback to default file if no main CSV on server
+    try {
+      const response = await fetch(config.csvFilePath);
+      if (response.ok) {
+        const csvText = await response.text();
+        const products = await parseCsv(csvText);
+        allProducts.push(...products);
+      }
+    } catch (e) {
+      console.error("Failed to load default CSV file", e);
+    }
   }
 
   cachedProducts = allProducts;

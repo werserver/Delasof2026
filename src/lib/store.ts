@@ -1,6 +1,6 @@
 // Admin settings — stored in localStorage, with config.ts as defaults
 import config from "@/lib/config";
-import { loadConfigFromServer, saveConfigToServer } from "@/lib/server-storage";
+import { loadConfigFromServer, saveConfigToServer, loadCsvFromServer, saveCsvToServer } from "@/lib/server-storage";
 
 const SETTINGS_KEY = "aff-shop-settings";
 const CSV_DATA_KEY = "aff-shop-csv-data";
@@ -156,7 +156,7 @@ export async function saveServerConfig(settings: AdminSettings): Promise<boolean
   return false;
 }
 
-// CSV data stored in localStorage
+// CSV data stored in localStorage (fallback) and Server
 export function getCsvData(): string | null {
   try {
     return localStorage.getItem(CSV_DATA_KEY);
@@ -165,8 +165,21 @@ export function getCsvData(): string | null {
   }
 }
 
-export function saveCsvData(csvText: string): void {
+/**
+ * Load main CSV from server
+ */
+export async function loadMainCsvFromServer(): Promise<string | null> {
+  const data = await loadCsvFromServer("__main__");
+  if (data) {
+    localStorage.setItem(CSV_DATA_KEY, data);
+    return data;
+  }
+  return getCsvData();
+}
+
+export async function saveCsvData(csvText: string): Promise<void> {
   localStorage.setItem(CSV_DATA_KEY, csvText);
+  await saveCsvToServer("__main__", csvText);
 }
 
 export function clearCsvData(): void {

@@ -3,7 +3,7 @@ import { Header } from "@/components/Header";
 import { SEOHead } from "@/components/SEOHead";
 import { AdminLogin } from "@/components/AdminLogin";
 import { isAdminLoggedIn, logoutAdmin } from "@/lib/auth";
-import { getAdminSettings, saveAdminSettings, loadServerConfig, saveServerConfig, type AdminSettings } from "@/lib/store";
+import { getAdminSettings, saveAdminSettings, loadServerConfig, saveServerConfig, loadMainCsvFromServer, saveCsvData, type AdminSettings } from "@/lib/store";
 import { saveCsvToServer, deleteCsvFromServer, loadCsvFromServer } from "@/lib/server-storage";
 import { clearCsvCache } from "@/lib/csv-products";
 import { applyThemeColor, THEME_OPTIONS } from "@/components/ThemeColorProvider";
@@ -68,6 +68,8 @@ function SettingsTab() {
     const load = async () => {
       const serverSettings = await loadServerConfig();
       setSettings(serverSettings);
+      // Load main CSV from server to ensure it's in sync
+      await loadMainCsvFromServer();
     };
     load();
   }, []);
@@ -179,12 +181,12 @@ function SettingsTab() {
       return;
     }
     const reader = new FileReader();
-    reader.onload = (ev) => {
+    reader.onload = async (ev) => {
       const text = ev.target?.result as string;
-      saveCsvData(text);
+      await saveCsvData(text);
       clearCsvCache();
       update({ csvFileName: file.name, dataSource: "csv" });
-      toast.success(`อัปโหลดไฟล์ ${file.name} เรียบร้อย!`);
+      toast.success(`อัปโหลดไฟล์ ${file.name} เรียบร้อย! (บันทึกไว้บน Server)`);
     };
     reader.readAsText(file);
     if (fileInputRef.current) fileInputRef.current.value = "";
@@ -205,7 +207,6 @@ function SettingsTab() {
         if (success) {
           clearCsvCache();
           update({
-            categoryCsvMap: { ...settings.categoryCsvMap, [uploadingCategory]: text },
             categoryCsvFileNames: { ...settings.categoryCsvFileNames, [uploadingCategory]: file.name },
           });
           toast.success(`อัปโหลด CSV สำหรับ "${uploadingCategory}" เรียบร้อย! (บันทึกไว้บน Server)`);
