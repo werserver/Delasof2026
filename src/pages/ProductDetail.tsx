@@ -239,17 +239,29 @@ export default function ProductDetail() {
               ))}
             </div>
 
-            <a
-              href={product.tracking_link}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="block"
-            >
-              <Button size="lg" className="w-full gap-2 text-base hover-scale shadow-lg shadow-primary/20">
-                <ShoppingCart className="h-5 w-5" />
-                สั่งซื้อสินค้านี้
-              </Button>
-            </a>
+            <div className="space-y-3">
+              <a
+                href={product.tracking_link}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="block"
+              >
+                <Button variant="outline" size="lg" className="w-full gap-2 text-base hover-scale border-primary text-primary hover:bg-primary/5">
+                  ดูรายละเอียดเพิ่มเติม
+                </Button>
+              </a>
+              <a
+                href={product.tracking_link}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="block"
+              >
+                <Button size="lg" className="w-full gap-2 text-base hover-scale shadow-lg shadow-primary/20">
+                  <ShoppingCart className="h-5 w-5" />
+                  สั่งซื้อสินค้านี้
+                </Button>
+              </a>
+            </div>
 
             {/* Share Buttons */}
             <ShareButtons url={window.location.href} title={displayName} />
