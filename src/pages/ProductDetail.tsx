@@ -8,6 +8,7 @@ import { FlashSaleCountdown } from "@/components/FlashSaleCountdown";
 import { AiReviews } from "@/components/AiReviews";
 import { FakeCompareTable } from "@/components/FakeCompareTable";
 import { RelatedProducts } from "@/components/RelatedProducts";
+import { Footer } from "@/components/Footer";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -364,9 +365,7 @@ export default function ProductDetail() {
         <RelatedProducts product={product} />
       </main>
 
-      <footer className="border-t py-6 text-center text-sm text-muted-foreground">
-        © 2026 {siteName} — สินค้าดีลพิเศษ
-      </footer>
+      <Footer />
     </div>
   );
 }

@@ -11,6 +11,8 @@ import AdminPanel from "./pages/AdminPanel";
 import ProductDetail from "./pages/ProductDetail";
 import CategoryPage from "./pages/CategoryPage";
 import WishlistPage from "./pages/WishlistPage";
+import AboutPage from "./pages/AboutPage";
+import ContactPage from "./pages/ContactPage";
 import NotFound from "./pages/NotFound";
 import SitemapPage from "./pages/SitemapPage";
 
@@ -39,6 +41,8 @@ const App = () => (
                 <Route path="/product/:slug" element={<ProductDetail />} />
                 <Route path="/category/:name" element={<CategoryPage />} />
                 <Route path="/wishlist" element={<WishlistPage />} />
+                <Route path="/about" element={<AboutPage />} />
+                <Route path="/contact" element={<ContactPage />} />
                 <Route path="/sitemap.xml" element={<SitemapPage />} />
                 <Route path="*" element={<NotFound />} />
               </Routes>

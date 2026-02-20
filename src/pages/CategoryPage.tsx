@@ -8,6 +8,7 @@ import { PaginationBar } from "@/components/PaginationBar";
 import { SearchBar } from "@/components/SearchBar";
 import { useProducts } from "@/hooks/useProducts";
 import { getAdminSettings } from "@/lib/store";
+import { Footer } from "@/components/Footer";
 import { ArrowLeft, Tag, LayoutGrid, List, Grid3X3 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -165,11 +166,7 @@ export default function CategoryPage() {
         )}
       </main>
 
-      <footer className="border-t py-6 text-center text-sm text-muted-foreground">
-        <div className="container mx-auto px-4 space-y-2">
-          <p>© 2026 {siteName} — {categoryName} ราคาถูก โปรโมชั่นสุดคุ้ม</p>
-        </div>
-      </footer>
+      <Footer />
     </div>
   );
 }

@@ -12,6 +12,7 @@ import { CompareTable } from "@/components/CompareTable";
 import { PriceAlertBanner } from "@/components/PriceAlertBanner";
 import { RecentlyViewed } from "@/components/RecentlyViewed";
 import { FakePurchasePopup } from "@/components/FakePurchasePopup";
+import { Footer } from "@/components/Footer";
 import { useProducts } from "@/hooks/useProducts";
 import { getAdminSettings } from "@/lib/store";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -234,22 +235,7 @@ const Index = () => {
         )}
       </main>
 
-      <footer className="border-t py-8 text-center text-sm text-muted-foreground">
-        <div className="container mx-auto px-4 space-y-2">
-          <p>© 2026 {siteName} — สินค้าดีลพิเศษ โปรโมชั่นสุดคุ้ม</p>
-          <nav className="flex flex-wrap justify-center gap-4 text-xs">
-            {settings.categories.slice(0, 5).map((cat) => (
-              <Link
-                key={cat}
-                to={`/category/${encodeURIComponent(cat)}`}
-                className="hover:text-primary transition-colors"
-              >
-                {cat}
-              </Link>
-            ))}
-          </nav>
-        </div>
-      </footer>
+      <Footer />
 
       {/* Fake Purchase Popup */}
       <FakePurchasePopup products={filteredProducts} />
