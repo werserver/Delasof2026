@@ -1,8 +1,13 @@
 // Admin settings — stored in localStorage, with config.ts as defaults
 import config from "@/lib/config";
+import { loadConfigFromServer, saveConfigToServer } from "@/lib/server-storage";
 
 const SETTINGS_KEY = "aff-shop-settings";
 const CSV_DATA_KEY = "aff-shop-csv-data";
+
+// Server config cache
+let serverConfig: AdminSettings | null = null;
+let isLoadingServerConfig = false;
 
 export type ThemeColor =
   | "orange"
@@ -77,6 +82,12 @@ function getDefaults(): AdminSettings {
 }
 
 export function getAdminSettings(): AdminSettings {
+  // Return server config if loaded
+  if (serverConfig) {
+    return serverConfig;
+  }
+
+  // Fallback to localStorage
   try {
     const raw = localStorage.getItem(SETTINGS_KEY);
     if (raw) {
@@ -95,8 +106,54 @@ export function getAdminSettings(): AdminSettings {
   return getDefaults();
 }
 
+/**
+ * Load config from server (async)
+ */
+export async function loadServerConfig(): Promise<AdminSettings> {
+  if (isLoadingServerConfig) return getAdminSettings();
+  if (serverConfig) return serverConfig;
+
+  isLoadingServerConfig = true;
+  try {
+    const loaded = await loadConfigFromServer();
+    if (loaded) {
+      serverConfig = {
+        ...getDefaults(),
+        ...loaded,
+      };
+      // Also save to localStorage as backup
+      localStorage.setItem(SETTINGS_KEY, JSON.stringify(serverConfig));
+      return serverConfig;
+    }
+  } catch (error) {
+    console.error("Error loading server config:", error);
+  } finally {
+    isLoadingServerConfig = false;
+  }
+
+  return getAdminSettings();
+}
+
 export function saveAdminSettings(settings: AdminSettings): void {
   localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings));
+  serverConfig = settings;
+}
+
+/**
+ * Save config to server (async)
+ */
+export async function saveServerConfig(settings: AdminSettings): Promise<boolean> {
+  try {
+    const success = await saveConfigToServer(settings);
+    if (success) {
+      serverConfig = settings;
+      localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings));
+      return true;
+    }
+  } catch (error) {
+    console.error("Error saving server config:", error);
+  }
+  return false;
 }
 
 // CSV data stored in localStorage

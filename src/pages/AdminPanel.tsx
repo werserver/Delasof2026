@@ -3,7 +3,8 @@ import { Header } from "@/components/Header";
 import { SEOHead } from "@/components/SEOHead";
 import { AdminLogin } from "@/components/AdminLogin";
 import { isAdminLoggedIn, logoutAdmin } from "@/lib/auth";
-import { getAdminSettings, saveAdminSettings, saveCsvData, type AdminSettings } from "@/lib/store";
+import { getAdminSettings, saveAdminSettings, loadServerConfig, saveServerConfig, type AdminSettings } from "@/lib/store";
+import { saveCsvToServer, deleteCsvFromServer, loadCsvFromServer } from "@/lib/server-storage";
 import { clearCsvCache } from "@/lib/csv-products";
 import { applyThemeColor, THEME_OPTIONS } from "@/components/ThemeColorProvider";
 import { Input } from "@/components/ui/input";
@@ -19,6 +20,7 @@ import {
   Palette, Type,
 } from "lucide-react";
 import { toast } from "sonner";
+import { useEffect } from "react";
 
 export default function AdminPanel() {
   const [authed, setAuthed] = useState(isAdminLoggedIn);
@@ -56,20 +58,42 @@ function SettingsTab() {
   const [newCategory, setNewCategory] = useState("");
   const [newKeyword, setNewKeyword] = useState("");
   const [newPrefixWord, setNewPrefixWord] = useState("");
+  const [saving, setSaving] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const categoryFileInputRef = useRef<HTMLInputElement>(null);
   const [uploadingCategory, setUploadingCategory] = useState("");
+
+  // Load server config on mount
+  useEffect(() => {
+    const load = async () => {
+      const serverSettings = await loadServerConfig();
+      setSettings(serverSettings);
+    };
+    load();
+  }, []);
 
   const update = (partial: Partial<AdminSettings>) => {
     setSettings((prev) => ({ ...prev, ...partial }));
   };
 
-  const handleSave = () => {
-    saveAdminSettings(settings);
-    clearCsvCache();
-    applyThemeColor(settings.themeColor);
-    toast.success("บันทึกการตั้งค่าเรียบร้อย!");
-    setTimeout(() => window.location.reload(), 1000);
+  const handleSave = async () => {
+    setSaving(true);
+    try {
+      const success = await saveServerConfig(settings);
+      if (success) {
+        clearCsvCache();
+        applyThemeColor(settings.themeColor);
+        toast.success("บันทึกการตั้งค่าเรียบร้อย! (บันทึกไว้บน Server)");
+        setTimeout(() => window.location.reload(), 1000);
+      } else {
+        toast.error("ไม่สามารถบันทึกไปยัง Server ได้");
+      }
+    } catch (error) {
+      console.error("Error saving:", error);
+      toast.error("เกิดข้อผิดพลาดในการบันทึก");
+    } finally {
+      setSaving(false);
+    }
   };
 
   const exportConfig = () => {
@@ -106,16 +130,23 @@ function SettingsTab() {
     setNewCategory("");
   };
 
-  const removeCategory = (cat: string) => {
-    const newMap = { ...settings.categoryCsvMap };
-    const newFileNames = { ...settings.categoryCsvFileNames };
-    delete newMap[cat];
-    delete newFileNames[cat];
-    update({
-      categories: settings.categories.filter((c) => c !== cat),
-      categoryCsvMap: newMap,
-      categoryCsvFileNames: newFileNames,
-    });
+  const removeCategory = async (cat: string) => {
+    try {
+      await deleteCsvFromServer(cat);
+      const newMap = { ...settings.categoryCsvMap };
+      const newFileNames = { ...settings.categoryCsvFileNames };
+      delete newMap[cat];
+      delete newFileNames[cat];
+      update({
+        categories: settings.categories.filter((c) => c !== cat),
+        categoryCsvMap: newMap,
+        categoryCsvFileNames: newFileNames,
+      });
+      toast.success(`ลบหมวดหมู่ "${cat}" เรียบร้อย`);
+    } catch (error) {
+      console.error("Error removing category:", error);
+      toast.error("ไม่สามารถลบหมวดหมู่ได้");
+    }
   };
 
   const addKeyword = () => {
@@ -159,7 +190,7 @@ function SettingsTab() {
     if (fileInputRef.current) fileInputRef.current.value = "";
   };
 
-  const handleCategoryCsvUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleCategoryCsvUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file || !uploadingCategory) return;
     if (!file.name.endsWith(".csv")) {
@@ -167,15 +198,26 @@ function SettingsTab() {
       return;
     }
     const reader = new FileReader();
-    reader.onload = (ev) => {
-      const text = ev.target?.result as string;
-      clearCsvCache();
-      update({
-        categoryCsvMap: { ...settings.categoryCsvMap, [uploadingCategory]: text },
-        categoryCsvFileNames: { ...settings.categoryCsvFileNames, [uploadingCategory]: file.name },
-      });
-      toast.success(`อัปโหลด CSV สำหรับ "${uploadingCategory}" เรียบร้อย!`);
-      setUploadingCategory("");
+    reader.onload = async (ev) => {
+      try {
+        const text = ev.target?.result as string;
+        const success = await saveCsvToServer(uploadingCategory, text);
+        if (success) {
+          clearCsvCache();
+          update({
+            categoryCsvMap: { ...settings.categoryCsvMap, [uploadingCategory]: text },
+            categoryCsvFileNames: { ...settings.categoryCsvFileNames, [uploadingCategory]: file.name },
+          });
+          toast.success(`อัปโหลด CSV สำหรับ "${uploadingCategory}" เรียบร้อย! (บันทึกไว้บน Server)`);
+        } else {
+          toast.error("ไม่สามารถอัปโหลด CSV ไปยัง Server ได้");
+        }
+      } catch (error) {
+        console.error("Error uploading CSV:", error);
+        toast.error("เกิดข้อผิดพลาดในการอัปโหลด");
+      } finally {
+        setUploadingCategory("");
+      }
     };
     reader.readAsText(file);
     if (categoryFileInputRef.current) categoryFileInputRef.current.value = "";
@@ -184,7 +226,7 @@ function SettingsTab() {
   const triggerCategoryUpload = (catName: string) => {
     setUploadingCategory(catName);
     setTimeout(() => categoryFileInputRef.current?.click(), 50);
-  };
+  }
 
   return (
     <div className="space-y-6">
@@ -590,10 +632,14 @@ function SettingsTab() {
       </Card>
 
       <div className="flex justify-end pt-4">
-        <Button onClick={handleSave} className="gap-2 px-8 shadow-lg shadow-primary/20">
-          <Save className="h-4 w-4" />
-          บันทึกการตั้งค่า
-        </Button>
+          <Button
+            onClick={handleSave}
+            disabled={saving}
+            className="gap-2 px-8 shadow-lg shadow-primary/20"
+          >
+            <Save className="h-4 w-4" />
+            {saving ? "กำลังบันทึก..." : "บันทึกการตั้งค่า"}
+          </Button>
       </div>
     </div>
   );
