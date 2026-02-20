@@ -5,6 +5,7 @@ import { SEOHead } from "@/components/SEOHead";
 import { SearchBar } from "@/components/SearchBar";
 import { KeywordTags } from "@/components/KeywordTags";
 import { ProductGrid } from "@/components/ProductGrid";
+import { MultiLayoutGrid, getLayoutForSection } from "@/components/ProductGridLayouts";
 import { FilterBar, type SortOption } from "@/components/FilterBar";
 import { PaginationBar } from "@/components/PaginationBar";
 import { CompareTable } from "@/components/CompareTable";
@@ -15,7 +16,9 @@ import { useProducts } from "@/hooks/useProducts";
 import { getAdminSettings } from "@/lib/store";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
-import { Tag } from "lucide-react";
+import { Tag, ChevronRight } from "lucide-react";
+
+const CATEGORY_DISPLAY_LIMIT = 20;
 
 const Index = () => {
   const settings = getAdminSettings();
@@ -51,16 +54,10 @@ const Index = () => {
     let items = [...data.data];
 
     if (priceMin !== undefined) {
-      items = items.filter((p) => {
-        const price = p.product_discounted || p.product_price;
-        return price >= priceMin;
-      });
+      items = items.filter((p) => (p.product_discounted || p.product_price) >= priceMin);
     }
     if (priceMax !== undefined) {
-      items = items.filter((p) => {
-        const price = p.product_discounted || p.product_price;
-        return price <= priceMax;
-      });
+      items = items.filter((p) => (p.product_discounted || p.product_price) <= priceMax);
     }
 
     if (sort === "price-asc") {
@@ -74,7 +71,7 @@ const Index = () => {
     return items;
   }, [data?.data, priceMin, priceMax, sort]);
 
-  // Group products by category for display
+  // Group products by category — show up to 20 per category
   const categoryGroups = useMemo(() => {
     if (!filteredProducts.length || activeKeyword) return [];
     const groups: Record<string, typeof filteredProducts> = {};
@@ -86,23 +83,30 @@ const Index = () => {
     return Object.entries(groups);
   }, [filteredProducts, activeKeyword]);
 
+  const siteName = settings.siteName || "ThaiDeals";
+
   return (
     <div className="min-h-screen bg-background">
       <PriceAlertBanner />
-      <SEOHead />
+      <SEOHead
+        title={`${siteName} — รวมสินค้าดีลพิเศษ ลดราคา โปรโมชั่นสุดคุ้ม`}
+        description={`${siteName} รวมสินค้าลดราคา โปรโมชั่นสุดคุ้ม จากร้านค้าชั้นนำ ค้นหาสินค้าราคาถูก ดีลเด็ด ส่วนลดพิเศษ อัปเดตทุกวัน`}
+        type="website"
+      />
       <Header />
 
       <main className="container mx-auto px-4 py-6 space-y-5">
         {/* Recently Viewed */}
         <RecentlyViewed />
+
         {/* Hero section */}
         <div className="rounded-2xl bg-gradient-to-r from-primary to-accent px-6 py-8 text-center animate-fade-in relative overflow-hidden">
           <div className="absolute inset-0 bg-[radial-gradient(circle_at_30%_50%,rgba(255,255,255,0.15),transparent_60%)]" />
           <h1 className="text-2xl font-bold text-primary-foreground sm:text-3xl relative">
-            🛒 สินค้าดีลพิเศษ
+            🛒 {siteName} — สินค้าดีลพิเศษ
           </h1>
           <p className="mt-2 text-sm text-primary-foreground/80 relative">
-            รวมสินค้าลดราคา โปรโมชั่นสุดคุ้ม จากร้านค้าชั้นนำ
+            รวมสินค้าลดราคา โปรโมชั่นสุดคุ้ม จากร้านค้าชั้นนำ อัปเดตทุกวัน
           </p>
           <div className="mt-5 flex justify-center relative">
             <SearchBar onSearch={handleSearch} initialValue={keyword} />
@@ -115,9 +119,9 @@ const Index = () => {
           active={activeTag}
         />
 
-        {/* Categories */}
+        {/* Category navigation */}
         {settings.categories.length > 0 && (
-          <div className="space-y-2">
+          <nav aria-label="หมวดหมู่สินค้า" className="space-y-2">
             <h2 className="text-sm font-semibold text-muted-foreground flex items-center gap-1.5">
               <Tag className="h-4 w-4" />
               หมวดหมู่
@@ -125,36 +129,63 @@ const Index = () => {
             <div className="flex flex-wrap gap-2">
               {settings.categories.map((cat) => (
                 <Link key={cat} to={`/category/${encodeURIComponent(cat)}`}>
-                  <Badge variant="outline" className="cursor-pointer hover:bg-primary hover:text-primary-foreground transition-colors">
+                  <Badge
+                    variant="outline"
+                    className="cursor-pointer hover:bg-primary hover:text-primary-foreground transition-colors"
+                  >
                     {cat}
                   </Badge>
                 </Link>
               ))}
             </div>
-          </div>
+          </nav>
         )}
 
         <FilterBar onPriceRange={handlePriceRange} onSort={setSort} sort={sort} />
 
-        {/* Show by category when not searching */}
-        {!activeKeyword && categoryGroups.length > 1 ? (
-          <div className="space-y-8">
-            {categoryGroups.map(([catName, products]) => (
-              <div key={catName} className="space-y-3">
-                <div className="flex items-center justify-between">
-                  <h2 className="text-lg font-semibold flex items-center gap-2">
-                    <Tag className="h-4 w-4 text-primary" />
-                    {catName}
-                    <span className="text-sm font-normal text-muted-foreground">({products.length})</span>
-                  </h2>
-                  <Link
-                    to={`/category/${encodeURIComponent(catName)}`}
-                    className="text-sm text-primary hover:underline"
-                  >
-                    ดูทั้งหมด →
-                  </Link>
-                </div>
-                <ProductGrid products={products.slice(0, 10)} isLoading={false} />
+        {/* Show by category when not searching — 20 items per category with varied layouts */}
+        {!activeKeyword && categoryGroups.length > 0 ? (
+          <div className="space-y-10">
+            {categoryGroups.map(([catName, products]) => {
+              const layout = getLayoutForSection(catName);
+              const displayProducts = products.slice(0, CATEGORY_DISPLAY_LIMIT);
+              return (
+                <section key={catName} aria-labelledby={`cat-${catName}`} className="space-y-4">
+                  <div className="flex items-center justify-between">
+                    <h2
+                      id={`cat-${catName}`}
+                      className="text-lg font-bold flex items-center gap-2"
+                    >
+                      <Tag className="h-4 w-4 text-primary" />
+                      {catName}
+                      <span className="text-sm font-normal text-muted-foreground">
+                        ({products.length} รายการ)
+                      </span>
+                    </h2>
+                    <Link
+                      to={`/category/${encodeURIComponent(catName)}`}
+                      className="text-sm text-primary hover:underline flex items-center gap-1"
+                    >
+                      ดูทั้งหมด
+                      <ChevronRight className="h-3.5 w-3.5" />
+                    </Link>
+                  </div>
+                  <MultiLayoutGrid
+                    products={displayProducts}
+                    isLoading={false}
+                    layout={layout}
+                    sectionId={catName}
+                  />
+                </section>
+              );
+            })}
+          </div>
+        ) : !activeKeyword && isLoading ? (
+          <div className="space-y-10">
+            {[1, 2, 3].map((i) => (
+              <div key={i} className="space-y-4">
+                <div className="h-7 w-48 rounded bg-muted animate-pulse" />
+                <MultiLayoutGrid isLoading={true} sectionId={`loading-${i}`} />
               </div>
             ))}
           </div>
@@ -203,8 +234,21 @@ const Index = () => {
         )}
       </main>
 
-      <footer className="border-t py-6 text-center text-sm text-muted-foreground">
-        © 2026 ThaiDeals — สินค้าดีลพิเศษ
+      <footer className="border-t py-8 text-center text-sm text-muted-foreground">
+        <div className="container mx-auto px-4 space-y-2">
+          <p>© 2026 {siteName} — สินค้าดีลพิเศษ โปรโมชั่นสุดคุ้ม</p>
+          <nav className="flex flex-wrap justify-center gap-4 text-xs">
+            {settings.categories.slice(0, 5).map((cat) => (
+              <Link
+                key={cat}
+                to={`/category/${encodeURIComponent(cat)}`}
+                className="hover:text-primary transition-colors"
+              >
+                {cat}
+              </Link>
+            ))}
+          </nav>
+        </div>
       </footer>
 
       {/* Fake Purchase Popup */}

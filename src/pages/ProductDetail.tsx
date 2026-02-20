@@ -113,8 +113,8 @@ export default function ProductDetail() {
   const reviews = getProductReviews(product.product_id);
   const hasDiscount = product.product_discounted_percentage > 0;
   const currentPrice = hasDiscount ? product.product_discounted : product.product_price;
-  const displayName = settings.enablePrefixWords
-    ? getPrefixedName(product.product_id, product.product_name)
+  const displayName = settings.enablePrefixWords && settings.prefixWordsList?.length > 0
+    ? getPrefixedName(product.product_id, product.product_name, settings.prefixWordsList)
     : product.product_name;
   const siteName = settings.siteName || "ThaiDeals";
 

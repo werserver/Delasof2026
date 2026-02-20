@@ -15,8 +15,8 @@ export function ProductCard({ product }: ProductCardProps) {
   const { rating, reviewCount } = getProductRating(product.product_id);
   const hasDiscount = product.product_discounted_percentage > 0;
   const settings = getAdminSettings();
-  const displayName = settings.enablePrefixWords
-    ? getPrefixedName(product.product_id, product.product_name)
+  const displayName = settings.enablePrefixWords && settings.prefixWordsList?.length > 0
+    ? getPrefixedName(product.product_id, product.product_name, settings.prefixWordsList)
     : product.product_name;
 
   return (

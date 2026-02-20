@@ -1,31 +1,24 @@
-import { useState, useEffect, useMemo, useRef } from "react";
+import { useState, useRef } from "react";
 import { Header } from "@/components/Header";
 import { SEOHead } from "@/components/SEOHead";
 import { AdminLogin } from "@/components/AdminLogin";
-import { isAdminLoggedIn, logoutAdmin, getUsername } from "@/lib/auth";
+import { isAdminLoggedIn, logoutAdmin } from "@/lib/auth";
 import { getAdminSettings, saveAdminSettings, saveCsvData, type AdminSettings } from "@/lib/store";
 import { clearCsvCache } from "@/lib/csv-products";
+import { applyThemeColor, THEME_OPTIONS } from "@/components/ThemeColorProvider";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
-import { Skeleton } from "@/components/ui/skeleton";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
-  Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
-} from "@/components/ui/table";
-import {
-  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
-} from "@/components/ui/select";
-import {
-  X, Plus, Save, Flame, Sparkles, DollarSign, ShoppingCart,
-  Clock, CheckCircle, XCircle, LogOut, Settings, BarChart3,
-  Key, Upload, FileSpreadsheet, Database, Tag, Globe, Image as ImageIcon
+  X, Plus, Save, Flame, Sparkles,
+  LogOut, Settings,
+  Key, Upload, FileSpreadsheet, Database, Tag, Globe, Image as ImageIcon,
+  Palette, Type,
 } from "lucide-react";
 import { toast } from "sonner";
-import { fetchConversions, type Conversion } from "@/lib/api";
 
 export default function AdminPanel() {
   const [authed, setAuthed] = useState(isAdminLoggedIn);
@@ -51,26 +44,7 @@ export default function AdminPanel() {
             ออกจากระบบ
           </Button>
         </div>
-
-        <Tabs defaultValue="settings">
-          <TabsList className="grid w-full grid-cols-2">
-            <TabsTrigger value="settings" className="gap-1.5">
-              <Settings className="h-4 w-4" />
-              ตั้งค่า
-            </TabsTrigger>
-            <TabsTrigger value="dashboard" className="gap-1.5">
-              <BarChart3 className="h-4 w-4" />
-              Dashboard
-            </TabsTrigger>
-          </TabsList>
-
-          <TabsContent value="settings" className="mt-6">
-            <SettingsTab />
-          </TabsContent>
-          <TabsContent value="dashboard" className="mt-6">
-            <DashboardTab />
-          </TabsContent>
-        </Tabs>
+        <SettingsTab />
       </main>
     </div>
   );
@@ -81,6 +55,7 @@ function SettingsTab() {
   const [settings, setSettings] = useState<AdminSettings>(getAdminSettings);
   const [newCategory, setNewCategory] = useState("");
   const [newKeyword, setNewKeyword] = useState("");
+  const [newPrefixWord, setNewPrefixWord] = useState("");
   const fileInputRef = useRef<HTMLInputElement>(null);
   const categoryFileInputRef = useRef<HTMLInputElement>(null);
   const [uploadingCategory, setUploadingCategory] = useState("");
@@ -92,8 +67,8 @@ function SettingsTab() {
   const handleSave = () => {
     saveAdminSettings(settings);
     clearCsvCache();
+    applyThemeColor(settings.themeColor);
     toast.success("บันทึกการตั้งค่าเรียบร้อย!");
-    // Force reload to apply site name/favicon changes
     setTimeout(() => window.location.reload(), 1000);
   };
 
@@ -117,7 +92,7 @@ function SettingsTab() {
         const imported = JSON.parse(ev.target?.result as string);
         setSettings(imported);
         toast.success("นำเข้าการตั้งค่าเรียบร้อย! อย่าลืมกดบันทึก");
-      } catch (err) {
+      } catch {
         toast.error("ไฟล์ไม่ถูกต้อง");
       }
     };
@@ -152,6 +127,17 @@ function SettingsTab() {
 
   const removeKeyword = (kw: string) => {
     update({ keywords: settings.keywords.filter((k) => k !== kw) });
+  };
+
+  const addPrefixWord = () => {
+    const pw = newPrefixWord.trim();
+    if (!pw || settings.prefixWordsList.includes(pw)) return;
+    update({ prefixWordsList: [...settings.prefixWordsList, pw] });
+    setNewPrefixWord("");
+  };
+
+  const removePrefixWord = (pw: string) => {
+    update({ prefixWordsList: settings.prefixWordsList.filter((p) => p !== pw) });
   };
 
   const handleCsvUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -205,37 +191,59 @@ function SettingsTab() {
       {/* Quick Actions */}
       <div className="flex flex-wrap items-center gap-2 bg-muted/30 p-3 rounded-xl border border-dashed">
         <div className="flex items-center gap-2">
-          <Button
-            variant="outline"
-            size="sm"
-            className="gap-1.5 h-9"
-            onClick={exportConfig}
-          >
+          <Button variant="outline" size="sm" className="gap-1.5 h-9" onClick={exportConfig}>
             <Upload className="h-4 w-4 rotate-180" />
             Export Config
           </Button>
           <label className="cursor-pointer">
-            <Button
-              variant="outline"
-              size="sm"
-              className="gap-1.5 h-9 pointer-events-none"
-            >
+            <Button variant="outline" size="sm" className="gap-1.5 h-9 pointer-events-none">
               <Upload className="h-4 w-4" />
               Import Config
             </Button>
             <input type="file" accept=".json" className="hidden" onChange={importConfig} />
           </label>
         </div>
-        <Button
-          variant="default"
-          size="sm"
-          className="gap-1.5 h-9 ml-auto shadow-md"
-          onClick={handleSave}
-        >
+        <Button variant="default" size="sm" className="gap-1.5 h-9 ml-auto shadow-md" onClick={handleSave}>
           <Save className="h-4 w-4" />
           บันทึกการตั้งค่าทั้งหมด
         </Button>
       </div>
+
+      {/* ===== THEMES ===== */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-lg flex items-center gap-2">
+            <Palette className="h-5 w-5 text-primary" />
+            ธีมสีเว็บไซต์
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <p className="text-sm text-muted-foreground mb-4">เลือกสีหลักของเว็บไซต์ จะมีผลทันทีหลังบันทึก</p>
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+            {THEME_OPTIONS.map((theme) => (
+              <button
+                key={theme.value}
+                onClick={() => {
+                  update({ themeColor: theme.value });
+                  applyThemeColor(theme.value);
+                }}
+                className={`flex items-center gap-2 rounded-xl border-2 p-3 transition-all hover:shadow-md ${
+                  settings.themeColor === theme.value
+                    ? "border-current shadow-md scale-105"
+                    : "border-border hover:border-muted-foreground"
+                }`}
+                style={{ borderColor: settings.themeColor === theme.value ? theme.color : undefined }}
+              >
+                <span
+                  className="h-6 w-6 rounded-full flex-shrink-0 shadow-sm"
+                  style={{ backgroundColor: theme.color }}
+                />
+                <span className="text-xs font-medium">{theme.label}</span>
+              </button>
+            ))}
+          </div>
+        </CardContent>
+      </Card>
 
       {/* Site Identity */}
       <Card>
@@ -267,7 +275,12 @@ function SettingsTab() {
                 />
                 {settings.faviconUrl && (
                   <div className="flex h-10 w-10 items-center justify-center rounded border bg-muted p-1">
-                    <img src={settings.faviconUrl} alt="Favicon Preview" className="h-full w-full object-contain" onError={(e) => (e.currentTarget.src = "/favicon.ico")} />
+                    <img
+                      src={settings.faviconUrl}
+                      alt="Favicon Preview"
+                      className="h-full w-full object-contain"
+                      onError={(e) => (e.currentTarget.src = "/favicon.ico")}
+                    />
                   </div>
                 )}
               </div>
@@ -306,7 +319,6 @@ function SettingsTab() {
             </Button>
           </div>
 
-          {/* CSV Upload */}
           {settings.dataSource === "csv" && (
             <div className="space-y-3 rounded-lg border bg-card p-4">
               <p className="text-sm font-medium">CSV ทั่วไป (ใช้เมื่อไม่มี CSV ตามหมวดหมู่)</p>
@@ -321,9 +333,7 @@ function SettingsTab() {
                   อัปโหลดไฟล์ CSV
                 </Button>
                 {settings.csvFileName && (
-                  <span className="text-sm text-muted-foreground">
-                    📄 {settings.csvFileName}
-                  </span>
+                  <span className="text-sm text-muted-foreground">📄 {settings.csvFileName}</span>
                 )}
               </div>
               <input
@@ -333,34 +343,9 @@ function SettingsTab() {
                 accept=".csv"
                 onChange={handleCsvUpload}
               />
-              
-              <div className="space-y-2 pt-2 border-t">
-                <Label className="text-xs text-muted-foreground">URL Cloaking Base URL</Label>
-                <Input
-                  value={settings.cloakingBaseUrl}
-                  onChange={(e) => update({ cloakingBaseUrl: e.target.value })}
-                  placeholder="https://goeco.mobi/?token=QlpXZyCqMylKUjZiYchwB"
-                  className="h-8 text-xs"
-                />
-                <p className="text-[10px] text-muted-foreground">ระบบจะสร้างลิงก์เป็น: base_url&url=encoded_product_url&source=api_product</p>
-              </div>
-
-              <div className="space-y-2">
-                <Label className="text-xs text-muted-foreground flex items-center gap-1">
-                  <Key className="h-3 w-3" /> URL Cloaking Token (ตัวเลือก)
-                </Label>
-                <Input
-                  value={settings.cloakingToken || ""}
-                  onChange={(e) => update({ cloakingToken: e.target.value })}
-                  placeholder="กรอก token (ตัวอย่าง: Q1pXZyCqMylKUjZiYchwB)"
-                  className="h-8 text-xs"
-                />
-                <p className="text-[10px] text-muted-foreground">URL ที่แสดงผล: https://goeco.mobi/?token=YOUR_TOKEN&url=...&source=api_product</p>
-              </div>
             </div>
           )}
 
-          {/* API Token */}
           {settings.dataSource === "api" && (
             <div className="space-y-2">
               <Label>API Token (Passio/Ecomobi)</Label>
@@ -369,6 +354,50 @@ function SettingsTab() {
                 onChange={(e) => update({ apiToken: e.target.value })}
                 placeholder="กรอก API Token ของคุณ"
               />
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* ===== URL CLOAKING ===== */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-lg flex items-center gap-2">
+            <Key className="h-5 w-5 text-primary" />
+            URL Cloaking
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="space-y-2">
+            <Label htmlFor="cloakingBaseUrl">URL Cloaking Base URL</Label>
+            <Input
+              id="cloakingBaseUrl"
+              value={settings.cloakingBaseUrl}
+              onChange={(e) => update({ cloakingBaseUrl: e.target.value })}
+              placeholder="https://goeco.mobi/?token=QlpXZyCqMylKUjZiYchwB"
+            />
+            <p className="text-xs text-muted-foreground">
+              ระบบจะสร้างลิงก์เป็น: base_url&amp;url=encoded_product_url&amp;source=api_product
+            </p>
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="cloakingToken" className="flex items-center gap-1">
+              <Key className="h-3.5 w-3.5" />
+              URL Cloaking Token
+            </Label>
+            <Input
+              id="cloakingToken"
+              value={settings.cloakingToken || ""}
+              onChange={(e) => update({ cloakingToken: e.target.value })}
+              placeholder="QlpXZyCqMylKUjZiYchwB"
+            />
+            <p className="text-xs text-muted-foreground">
+              URL ที่แสดงผล: https://goeco.mobi/?token=YOUR_TOKEN&amp;url=...&amp;source=api_product
+            </p>
+          </div>
+          {settings.cloakingBaseUrl && (
+            <div className="rounded-lg bg-muted/50 p-3 text-xs font-mono text-muted-foreground break-all">
+              ตัวอย่าง: {settings.cloakingBaseUrl}&amp;url=https%3A%2F%2Fshopee.co.th%2Fproduct&amp;source=api_product
             </div>
           )}
         </CardContent>
@@ -459,10 +488,7 @@ function SettingsTab() {
             {settings.keywords.map((kw) => (
               <Badge key={kw} variant="secondary" className="gap-1 py-1.5 px-3">
                 {kw}
-                <X
-                  className="h-3 w-3 cursor-pointer hover:text-destructive"
-                  onClick={() => removeKeyword(kw)}
-                />
+                <X className="h-3 w-3 cursor-pointer hover:text-destructive" onClick={() => removeKeyword(kw)} />
               </Badge>
             ))}
           </div>
@@ -498,16 +524,68 @@ function SettingsTab() {
               onCheckedChange={(v) => update({ enableAiReviews: v })}
             />
           </div>
-          <div className="flex items-center justify-between">
+        </CardContent>
+      </Card>
+
+      {/* ===== PREFIX WORDS ===== */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-lg flex items-center gap-2">
+            <Type className="h-5 w-5 text-primary" />
+            คำนำหน้าชื่อสินค้า (Prefix Words)
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="flex items-center justify-between rounded-lg border p-3 bg-muted/30">
             <div className="space-y-0.5">
-              <Label>Prefix Words</Label>
-              <p className="text-xs text-muted-foreground">เพิ่มคำนำหน้าชื่อสินค้า (เช่น [SALE], [HOT])</p>
+              <Label>เปิดใช้งาน Prefix Words</Label>
+              <p className="text-xs text-muted-foreground">เพิ่มคำนำหน้าชื่อสินค้าเพื่อดึงดูดความสนใจ</p>
             </div>
             <Switch
               checked={settings.enablePrefixWords}
               onCheckedChange={(v) => update({ enablePrefixWords: v })}
             />
           </div>
+
+          <div className="space-y-3">
+            <Label className="text-sm font-medium">รายการคำนำหน้า</Label>
+            <div className="flex gap-2">
+              <Input
+                value={newPrefixWord}
+                onChange={(e) => setNewPrefixWord(e.target.value)}
+                placeholder="เพิ่มคำนำหน้า เช่น ลดราคา, ขายดี..."
+                onKeyDown={(e) => e.key === "Enter" && addPrefixWord()}
+                disabled={!settings.enablePrefixWords}
+              />
+              <Button onClick={addPrefixWord} size="icon" disabled={!settings.enablePrefixWords}>
+                <Plus className="h-4 w-4" />
+              </Button>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              {settings.prefixWordsList.map((pw) => (
+                <Badge
+                  key={pw}
+                  variant={settings.enablePrefixWords ? "default" : "outline"}
+                  className="gap-1 py-1.5 px-3"
+                >
+                  {pw}
+                  <X
+                    className="h-3 w-3 cursor-pointer hover:text-destructive"
+                    onClick={() => removePrefixWord(pw)}
+                  />
+                </Badge>
+              ))}
+            </div>
+            {settings.prefixWordsList.length === 0 && (
+              <p className="text-xs text-muted-foreground text-center py-2">ยังไม่มีคำนำหน้า</p>
+            )}
+          </div>
+
+          {settings.enablePrefixWords && settings.prefixWordsList.length > 0 && (
+            <div className="rounded-lg bg-muted/50 p-3 text-xs text-muted-foreground">
+              ตัวอย่าง: <span className="font-medium text-foreground">"{settings.prefixWordsList[0]} ชื่อสินค้า"</span>
+            </div>
+          )}
         </CardContent>
       </Card>
 
@@ -517,163 +595,6 @@ function SettingsTab() {
           บันทึกการตั้งค่า
         </Button>
       </div>
-    </div>
-  );
-}
-
-/* ========== Dashboard Tab ========== */
-function DashboardTab() {
-  const [conversions, setConversions] = useState<Conversion[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
-  const [statusFilter, setStatusFilter] = useState("all");
-
-  const today = new Date().toISOString().split("T")[0];
-  const ninetyDaysAgo = new Date(Date.now() - 90 * 86400000).toISOString().split("T")[0];
-  const [startDate, setStartDate] = useState(ninetyDaysAgo);
-  const [endDate, setEndDate] = useState(today);
-
-  const loadData = () => {
-    setLoading(true);
-    setError("");
-    fetchConversions({
-      start_date: startDate,
-      end_date: endDate,
-      status: statusFilter !== "all" ? statusFilter : undefined,
-      limit: 100,
-      page: 1,
-    })
-      .then((res) => setConversions(res.data))
-      .catch((e) => setError(e.message))
-      .finally(() => setLoading(false));
-  };
-
-  useEffect(() => { loadData(); }, []);
-
-  const stats = useMemo(() => {
-    const totalOrders = conversions.length;
-    const totalSales = conversions.reduce((s, c) => s + c.sale_amount, 0);
-    const totalApproved = conversions.reduce((s, c) => s + c.payout_approved, 0);
-    const totalPending = conversions.reduce((s, c) => s + c.payout_pending, 0);
-    const statusCounts = { pending: 0, approved: 0, rejected: 0 };
-    conversions.forEach((c) => {
-      if (c.status in statusCounts) statusCounts[c.status as keyof typeof statusCounts]++;
-    });
-    return { totalOrders, totalSales, totalApproved, totalPending, statusCounts };
-  }, [conversions]);
-
-  const statusBadge = (status: string) => {
-    const map: Record<string, { label: string; className: string }> = {
-      pending: { label: "รออนุมัติ", className: "bg-accent text-accent-foreground" },
-      approved: { label: "อนุมัติ", className: "bg-success text-primary-foreground" },
-      rejected: { label: "ปฏิเสธ", className: "bg-sale text-primary-foreground" },
-    };
-    const info = map[status] || { label: status, className: "" };
-    return <Badge className={`border-0 ${info.className}`}>{info.label}</Badge>;
-  };
-
-  const fmt = (amount: number) =>
-    new Intl.NumberFormat("vi-VN", { style: "currency", currency: "VND", maximumFractionDigits: 0 }).format(amount);
-
-  return (
-    <div className="space-y-6">
-      {/* Filters */}
-      <div className="flex flex-wrap items-end gap-3 rounded-xl border bg-card p-4">
-        <div className="space-y-1">
-          <label className="text-xs font-medium text-muted-foreground">วันเริ่ม</label>
-          <Input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} className="w-40 h-9 text-sm" />
-        </div>
-        <div className="space-y-1">
-          <label className="text-xs font-medium text-muted-foreground">วันสิ้นสุด</label>
-          <Input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} className="w-40 h-9 text-sm" />
-        </div>
-        <div className="space-y-1">
-          <label className="text-xs font-medium text-muted-foreground">สถานะ</label>
-          <Select value={statusFilter} onValueChange={setStatusFilter}>
-            <SelectTrigger className="w-36 h-9 text-sm"><SelectValue /></SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">ทั้งหมด</SelectItem>
-              <SelectItem value="pending">รออนุมัติ</SelectItem>
-              <SelectItem value="approved">อนุมัติ</SelectItem>
-              <SelectItem value="rejected">ปฏิเสธ</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
-        <Button size="sm" onClick={loadData}>ค้นหา</Button>
-      </div>
-
-      {error && <div className="rounded-xl border border-destructive/30 bg-destructive/10 p-4 text-sm text-destructive">{error}</div>}
-
-      {/* Stats */}
-      {loading ? (
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          {Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-28 rounded-xl" />)}
-        </div>
-      ) : (
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">ออเดอร์</CardTitle>
-              <ShoppingCart className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent><p className="text-2xl font-bold">{stats.totalOrders}</p></CardContent>
-          </Card>
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">ยอดขาย</CardTitle>
-              <DollarSign className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent><p className="text-2xl font-bold">{fmt(stats.totalSales)}</p></CardContent>
-          </Card>
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">อนุมัติแล้ว</CardTitle>
-              <CheckCircle className="h-4 w-4 text-success" />
-            </CardHeader>
-            <CardContent><p className="text-2xl font-bold text-success">{fmt(stats.totalApproved)}</p></CardContent>
-          </Card>
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">รอดำเนินการ</CardTitle>
-              <Clock className="h-4 w-4 text-accent" />
-            </CardHeader>
-            <CardContent><p className="text-2xl font-bold text-accent">{fmt(stats.totalPending)}</p></CardContent>
-          </Card>
-        </div>
-      )}
-
-      {/* Conversion Table */}
-      {!loading && conversions.length > 0 && (
-        <Card>
-          <CardHeader><CardTitle className="text-lg">รายการ Conversions</CardTitle></CardHeader>
-          <CardContent>
-            <div className="overflow-x-auto">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>วันที่</TableHead>
-                    <TableHead>Advertiser</TableHead>
-                    <TableHead>Order ID</TableHead>
-                    <TableHead>ยอดขาย</TableHead>
-                    <TableHead>สถานะ</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {conversions.map((c) => (
-                    <TableRow key={c._id}>
-                      <TableCell className="text-xs">{new Date(c.time).toLocaleDateString("th-TH")}</TableCell>
-                      <TableCell className="text-xs">{c.advertiser}</TableCell>
-                      <TableCell className="text-xs font-mono">{c.adv_order_id}</TableCell>
-                      <TableCell className="text-xs">{fmt(c.sale_amount)}</TableCell>
-                      <TableCell>{statusBadge(c.status)}</TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </div>
-          </CardContent>
-        </Card>
-      )}
     </div>
   );
 }

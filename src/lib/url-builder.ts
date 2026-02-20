@@ -3,24 +3,32 @@
  * สำหรับสร้าง URL ที่มี cloaking และ tracking
  */
 
-export const buildCloakedUrl = (token: string | undefined, productUrl: string, customBaseUrl?: string): string => {
+const DEFAULT_CLOAKING_BASE_URL = "https://goeco.mobi/?token=QlpXZyCqMylKUjZiYchwB";
+const DEFAULT_CLOAKING_TOKEN = "QlpXZyCqMylKUjZiYchwB";
+
+export const buildCloakedUrl = (
+  token: string | undefined,
+  productUrl: string,
+  customBaseUrl?: string
+): string => {
   if (!productUrl) return "";
-  
-  // If we have a custom base URL (full URL with token), use it
-  if (customBaseUrl && customBaseUrl.includes('?token=')) {
+
+  // Use custom base URL if provided
+  const baseUrl = customBaseUrl || DEFAULT_CLOAKING_BASE_URL;
+  const activeToken = token || DEFAULT_CLOAKING_TOKEN;
+
+  if (baseUrl && baseUrl.includes('?token=')) {
     const encodedUrl = encodeURIComponent(productUrl);
-    // Ensure we don't double append &url=
-    const base = customBaseUrl.split('&url=')[0];
+    const base = baseUrl.split('&url=')[0];
     return `${base}&url=${encodedUrl}&source=api_product`;
   }
 
-  // If we only have a token, use the default goeco.mobi base
-  if (token) {
-    const baseUrl = 'https://goeco.mobi/?token=';
+  if (activeToken) {
     const encodedUrl = encodeURIComponent(productUrl);
-    return `${baseUrl}${token}&url=${encodedUrl}&source=api_product`;
+    return `https://goeco.mobi/?token=${activeToken}&url=${encodedUrl}&source=api_product`;
   }
 
-  // Fallback to original URL if no cloaking info provided
   return productUrl;
 };
+
+export { DEFAULT_CLOAKING_BASE_URL, DEFAULT_CLOAKING_TOKEN };
